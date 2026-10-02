@@ -506,7 +506,10 @@
     // не секретность этого ключа).
     var SUPABASE_URL = "https://ppigbdttwgfiuzjvujfy.supabase.co";
     var SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CywaEwOVq_3HPorNF3FqxQ_Oo0qUkXQ";
-яё
+    // Тот же OAuth 2.0 Web Client ID, что уже настроен для Android-игры
+    // (android_google_web_client_id, см. game_config.js) — переиспользуем,
+    // не заводим новый клиент ради одной страницы.
+    var GOOGLE_WEB_CLIENT_ID = "237945296866-g6cgtusijdf7i6mrusr8b9pj0kfp26uk.apps.googleusercontent.com";
     var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
     var stepSignin = document.getElementById("step-signin");
