@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Удаление аккаунта — Мастера Фамильяров</title>
+  <meta name="description" content="Самостоятельное удаление аккаунта и всех данных игры «Мастера Фамильяров»." />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <!--
+  Самостоятельная (не связанная с Claude Artifacts) статическая страница —
+  требует хостинга с настоящим, неограниченным CSP (GitHub Pages/Netlify/
+  Vercel/собственный домен), т.к. использует Google Identity Services
+  (accounts.google.com/gsi/client), которого нет в списке разрешённых
+  внешних скриптов у Claude Artifacts, и приём OAuth-редиректа, который
+  артефакты тоже не поддерживают (режут query/#key=value при входящей
+  навигации). См. ANDROID_PORTING_PLAN.md / CLAUDE.md за подробностями.
+
+  ОБЯЗАТЕЛЬНЫЙ РУЧНОЙ ШАГ перед использованием: в Google Cloud Console →
+  этот же OAuth 2.0 Client ID (android_google_web_client_id, см.
+  game_config.js) → "Authorized JavaScript origins" — добавить домен, на
+  котором РЕАЛЬНО будет жить эта страница (например https://ваш-логин.
+  github.io). Без этого Google откажет в входе с ошибкой origin mismatch.
+-->
+  <style>
+    :root {
+      --bg-1: #090d1a;
+      --bg-2: #10172b;
+      --panel: rgba(20, 28, 50, 0.92);
+      --panel-2: rgba(27, 37, 66, 0.96);
+      --panel-soft: rgba(255, 255, 255, .045);
+      --line: rgba(151, 169, 216, .20);
+      --line-strong: rgba(151, 169, 216, .34);
+      --text: #f4f6ff;
+      --text-dim: #aeb8d4;
+      --text-faint: #6f7b9e;
+      --purple: #7868ff;
+      --purple-2: #9a8eff;
+      --cyan: #4fd9e8;
+      --danger: #ff6572;
+      --danger-bg: rgba(255, 73, 91, .11);
+      --danger-line: rgba(255, 101, 114, .40);
+      --ok: #55d49a;
+      --ok-bg: rgba(66, 211, 145, .11);
+      --shadow: 0 24px 70px rgba(0, 0, 0, .42);
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Public Sans", system-ui, sans-serif;
+      line-height: 1.55;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(120, 104, 255, .24), transparent 34%),
+        radial-gradient(circle at 0% 45%, rgba(79, 217, 232, .07), transparent 28%),
+        linear-gradient(145deg, var(--bg-1), var(--bg-2));
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      inset: 0;
+      opacity: .16;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, black, transparent 78%);
+    }
+
+    body::after {
+      width: 420px;
+      height: 420px;
+      top: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: rgba(120, 104, 255, .08);
+      filter: blur(70px);
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      width: min(100% - 32px, 600px);
+      margin: 0 auto;
+      padding: 44px 0 54px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 26px;
+      padding: 0 4px;
+    }
+
+    .emblem {
+      width: 52px;
+      height: 52px;
+      flex: none;
+      filter: drop-shadow(0 7px 18px rgba(120, 104, 255, .28));
+    }
+
+    .app-name {
+      margin: 0 0 3px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--purple-2);
+    }
+
+    h1 {
+      margin: 0;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(28px, 7vw, 38px);
+      line-height: 1.08;
+      font-weight: 600;
+      letter-spacing: -.025em;
+      text-wrap: balance;
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 103px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--purple), transparent);
+      opacity: .45;
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 16px;
+      padding: 25px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .055), transparent 48%),
+        var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--purple), var(--cyan), transparent);
+      opacity: .72;
+    }
+
+    .card p {
+      margin: 0 0 16px;
+      font-size: 15px;
+      color: var(--text-dim);
+    }
+
+    .card p:last-child {
+      margin-bottom: 0;
+    }
+
+    .step-label {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 13px !important;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px !important;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--purple-2) !important;
+    }
+
+    .step-label::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 12px rgba(79, 217, 232, .65);
+    }
+
+    #gis-button-container {
+      min-height: 44px;
+      margin-top: 18px;
+      padding: 1px;
+      border-radius: 12px;
+    }
+
+    .account-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 12px 14px;
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      flex: none;
+      background: linear-gradient(135deg, #343e63, #171d32);
+      border: 2px solid rgba(154, 142, 255, .55);
+      object-fit: cover;
+    }
+
+    button.danger,
+    button.ghost,
+    button.primary {
+      min-height: 46px;
+      font-family: "Public Sans", sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .01em;
+      padding: 11px 18px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+    }
+
+    button.danger {
+      color: #fff;
+      background: linear-gradient(135deg, #d94b5c, #b92f49);
+      border-color: rgba(255, 151, 160, .28);
+      box-shadow: 0 9px 24px rgba(196, 49, 69, .22);
+    }
+
+    button.danger:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(196, 49, 69, .30);
+    }
+
+    button.ghost {
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, .035);
+      border-color: var(--line);
+      margin-left: 8px;
+    }
+
+    button.ghost:hover {
+      color: var(--text);
+      border-color: var(--line-strong);
+      background: rgba(255, 255, 255, .07);
+    }
+
+    button.primary {
+      color: #fff;
+      background: linear-gradient(135deg, var(--purple), #6655d8);
+      box-shadow: 0 9px 24px rgba(103, 85, 216, .22);
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: default;
+      transform: none !important;
+    }
+
+    .warning-box {
+      position: relative;
+      margin: 0 0 17px !important;
+      padding: 14px 16px 14px 43px;
+      color: #ffb0b7 !important;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-line);
+      border-radius: 12px;
+      font-size: 13px !important;
+    }
+
+    .warning-box::before {
+      content: "!";
+      position: absolute;
+      left: 15px;
+      top: 14px;
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--danger);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .result-box {
+      margin-top: 14px !important;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-size: 13px !important;
+    }
+
+    .result-box.ok {
+      color: #9af0c6;
+      background: var(--ok-bg);
+      border-color: rgba(85, 212, 154, .30);
+    }
+
+    .result-box.error {
+      color: #ffb0b7;
+      background: var(--danger-bg);
+      border-color: var(--danger-line);
+    }
+
+    #delete-progress p {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-dim);
+    }
+
+    #delete-progress p::before {
+      content: "";
+      width: 17px;
+      height: 17px;
+      border: 2px solid rgba(154, 142, 255, .25);
+      border-top-color: var(--purple-2);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    footer {
+      margin-top: 28px;
+      padding: 0 10px;
+      color: var(--text-faint);
+      font-size: 11px;
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    footer p {
+      margin: 5px 0;
+    }
+
+    footer a {
+      color: var(--text-dim);
+      text-decoration-color: rgba(174, 184, 212, .35);
+      text-underline-offset: 3px;
+    }
+
+    footer a:hover {
+      color: var(--purple-2);
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 520px) {
+      .page {
+        width: min(100% - 22px, 600px);
+        padding-top: 27px;
+      }
+
+      header {
+        margin-bottom: 21px;
+      }
+
+      header::after {
+        top: 84px;
+      }
+
+      .emblem {
+        width: 46px;
+        height: 46px;
+      }
+
+      h1 {
+        font-size: 29px;
+      }
+
+      .card {
+        padding: 20px 18px;
+        border-radius: 17px;
+      }
+
+      button.danger,
+      button.ghost,
+      button.primary {
+        width: 100%;
+      }
+
+      button.ghost {
+        margin: 9px 0 0;
+      }
+
+      #delete-confirm button.danger+button.ghost {
+        display: block;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <header>
+      <svg class="emblem" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <path d="M24 2 L46 24 L24 46 L2 24 Z" stroke="var(--line)" stroke-width="1.5" fill="var(--panel)" />
+        <circle cx="24" cy="13" r="5" fill="#e4572e" />
+        <circle cx="35" cy="24" r="5" fill="#5bbcd6" />
+        <circle cx="24" cy="35" r="5" fill="#5a8f4f" />
+        <circle cx="13" cy="24" r="5" fill="#2e86de" />
+      </svg>
+      <div>
+        <p class="app-name">Мастера Фамильяров</p>
+        <h1>Удаление аккаунта</h1>
+      </div>
+    </header>
+
+    <div class="card" id="step-signin">
+      <p class="step-label">Шаг 1</p>
+      <p>Войдите через тот же Google-аккаунт, которым вы пользуетесь в игре — это нужно, чтобы подтвердить, что аккаунт
+        действительно ваш.</p>
+      <div id="gis-button-container"></div>
+      <p id="signin-error" class="result-box error" hidden></p>
+    </div>
+
+    <div class="card" id="step-delete" hidden>
+      <p class="step-label">Шаг 2</p>
+      <div class="account-line">
+        <img class="avatar" id="account-avatar" alt="" />
+        <span id="account-email"></span>
+      </div>
+
+      <div id="delete-idle">
+        <button class="danger" id="btn-delete-start">Удалить аккаунт и все данные</button>
+      </div>
+
+      <div id="delete-confirm" hidden>
+        <p class="warning-box">Это навсегда удалит ваш аккаунт и весь прогресс в облаке. Отменить нельзя.</p>
+        <button class="danger" id="btn-delete-confirm">Да, удалить навсегда</button>
+        <button class="ghost" id="btn-delete-cancel">Отмена</button>
+      </div>
+
+      <div id="delete-progress" hidden>
+        <p>Удаление…</p>
+      </div>
+
+      <div id="delete-result" hidden></div>
+    </div>
+
+    <footer>
+      <p>Полный текст: <a href="https://claude.ai/artifact/GymsxU9gR3mXnqBE5XH92n" target="_blank"
+          rel="noopener">Политика конфиденциальности</a></p>
+      <p>Если что-то не работает, напишите на <a
+          href="mailto:monstertamersupport@gmail.com">monstertamersupport@gmail.com</a> — удалим вручную.</p>
+    </footer>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="./supabase.min.js"></script>
+  <script>
+    // Те же URL/ключ, что и в самой игре (src/utils/pvp/supabase_client.js) —
+    // публичный клиентский ключ, скрывать незачем (RLS/грант защищают данные,
+    // не секретность этого ключа).
+    var SUPABASE_URL = "https://ppigbdttwgfiuzjvujfy.supabase.co";
+    var SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CywaEwOVq_3HPorNF3FqxQ_Oo0qUkXQ";
+яё
+    var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    var stepSignin = document.getElementById("step-signin");
+    var stepDelete = document.getElementById("step-delete");
+    var signinError = document.getElementById("signin-error");
+    var accountEmail = document.getElementById("account-email");
+    var accountAvatar = document.getElementById("account-avatar");
+    var deleteIdle = document.getElementById("delete-idle");
+    var deleteConfirm = document.getElementById("delete-confirm");
+    var deleteProgress = document.getElementById("delete-progress");
+    var deleteResult = document.getElementById("delete-result");
+
+    function showStep2(user) {
+      stepSignin.hidden = true;
+      stepDelete.hidden = false;
+      accountEmail.textContent = user.email || user.id;
+      if (user.user_metadata && user.user_metadata.avatar_url) {
+        accountAvatar.src = user.user_metadata.avatar_url;
+      }
+    }
+
+    async function handleGoogleCredential(response) {
+      signinError.hidden = true;
+      var idToken = response.credential;
+      var result = await sb.auth.signInWithIdToken({ provider: "google", token: idToken });
+      if (result.error) {
+        signinError.textContent = "Не удалось войти: " + result.error.message;
+        signinError.hidden = false;
+        return;
+      }
+      showStep2(result.data.user);
+    }
+
+    // Google Identity Services подключается асинхронно (async defer) — ждём,
+    // пока появится window.google, прежде чем инициализировать.
+    function initGis() {
+      if (!window.google || !window.google.accounts) {
+        setTimeout(initGis, 150);
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_WEB_CLIENT_ID,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(
+        document.getElementById("gis-button-container"),
+        { theme: "outline", size: "large", text: "signin_with" },
+      );
+    }
+    initGis();
+
+    // Если у посетителя уже есть активная Supabase-сессия с этого же браузера
+    // (маловероятно на отдельном домене, но безопасно проверить) — пропускаем
+    // Шаг 1 сразу.
+    sb.auth.getSession().then(function (res) {
+      if (res.data && res.data.session && res.data.session.user) {
+        showStep2(res.data.session.user);
+      }
+    });
+
+    document.getElementById("btn-delete-start").addEventListener("click", function () {
+      deleteIdle.hidden = true;
+      deleteConfirm.hidden = false;
+    });
+    document.getElementById("btn-delete-cancel").addEventListener("click", function () {
+      deleteConfirm.hidden = true;
+      deleteIdle.hidden = false;
+    });
+    document.getElementById("btn-delete-confirm").addEventListener("click", async function () {
+      deleteConfirm.hidden = true;
+      deleteProgress.hidden = false;
+      var result = await sb.functions.invoke("delete-account", { body: {} });
+      deleteProgress.hidden = true;
+      deleteResult.hidden = false;
+      if (result.error || !result.data || !result.data.ok) {
+        var message = result.error ? result.error.message : (result.data && result.data.error) || "неизвестная ошибка";
+        deleteResult.className = "result-box error";
+        deleteResult.textContent = "Не удалось удалить аккаунт: " + message + ". Попробуйте позже или напишите на monstertamersupport@gmail.com.";
+      } else {
+        deleteResult.className = "result-box ok";
+        deleteResult.textContent = "Готово. Аккаунт и все связанные с ним данные удалены.";
+        sb.auth.signOut().catch(function () { });
+      }
+    });
+  </script>
+</body>
+
+</html>
